@@ -37,7 +37,7 @@
                                          (lambda ()
                                            (cffi:foreign-free struct)))
                struct))
-           (mapping (make-hash-table))
+           (mapping (trivial-garbage:make-weak-hash-table :weakness :value))
            (epoll-object
              (dlambda
                (:mapping () mapping)
@@ -72,7 +72,6 @@
                        nil
                        "I could not add a file descriptor (~a) to epoll (~a):"
                        sock-fd epoll-fd)))
-        (funcall socket :register-multiplexer plex)
         (setf (gethash sock-fd (funcall plex :mapping)) socket)
         t))))
 
@@ -96,7 +95,6 @@
                      "I could not delete a file descriptor (~a) from ~
                      epoll (~a):"
                      sock-fd epoll-fd))))
-    (funcall socket :unregister-multiplexer plex)
     (remhash sock-fd (funcall plex :mapping))
     t))
 

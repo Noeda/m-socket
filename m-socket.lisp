@@ -96,10 +96,6 @@ care."
          (shutdown-how :shut-wr)           ; How should we shutdown then?
          (has-been-shutdown nil)           ; Are we already shutdown?
          (blocking nil)                    ; Is the socket blocking?
-         (multiplexers (trivial-garbage:make-weak-hash-table
-                         :weakness :key))  ; Table of I/O multiplexers we are
-                                           ; in. (needed to automatically
-                                           ; remove us from them if we die)
          (buffered-send-bytes 0)           ; How many bytes are currently
                                            ; buffered?
          (ob
@@ -120,15 +116,6 @@ care."
                              (if v
                                (%set-to-blocking raw-socket)
                                (%set-to-nonblocking raw-socket)))
-             (:remove-from-multiplexers ()
-               (with-hash-table-iterator* (plex dummy multiplexers)
-                 (remove-socket-from-io-multiplexer #'self plex))
-               (clrhash multiplexers))
-             (:multiplexers () multiplexers)
-             (:unregister-multiplexer (plex)
-               (remhash plex multiplexers))
-             (:register-multiplexer (plex)
-               (setf (gethash plex multiplexers) t))
              (:buffers-empty? () (null raw-send-buffers))
              (:decrease-send-buf (amount)
                (decf buffered-send-bytes amount))
@@ -197,14 +184,11 @@ care."
                  (%shutdown raw-socket shutdown-how)
                  (setq has-been-shutdown t)))
              (:kill ()
-               (self :remove-from-multiplexers)
                (%close raw-socket)
                (setq raw-socket -1)))))
     (trivial-garbage:finalize ob
           (lambda ()
             (unless (= raw-socket -1)
-              (with-hash-table-iterator* (plex dummy multiplexers)
-                (remove-socket-from-io-multiplexer-by-filedesc raw-socket plex))
               (%close raw-socket))))
     ob))
 
